@@ -7,14 +7,6 @@ A Docker-based development environment for data analysis using Polars, Jupyter N
 - Docker installed on your system
 - Git (optional, for cloning the repository)
 
-## Project Structure
-.
-├── Dockerfile
-├── requirements.txt
-├── 01-docker_build.sh
-├── 02-docker_run.sh
-└── polars_data_analysis.ipynb
-
 ## Quick Start
 
 1. Build the Docker image:
