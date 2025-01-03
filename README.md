@@ -1,47 +1,60 @@
-# Polars Data Analysis Docker Environment
+# Polars Data Analysis Environment
 
-This project provides a Docker environment for data analysis using Python and Polars, a lightning-fast DataFrame library.
-
-## Features
-
-- Ready-to-use Docker environment for data analysis
-- Python with Polars DataFrame library pre-installed
-- Jupyter Notebook/Lab support
-- Volume mapping for persistent data storage
+A Docker-based development environment for data analysis using Polars, Jupyter Notebook, and Python 3.9.
 
 ## Prerequisites
 
-- Docker
-- Docker Compose
-
-## Getting Started
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/polars-data-analysis.git
-
-2. Navigate to the project directory:
-```bash
-cd polars-data-analysis
+- Docker installed on your system
+- Git (optional, for cloning the repository)
 
 ## Project Structure
+.
+├── Dockerfile
+├── requirements.txt
+├── 01-docker_build.sh
+├── 02-docker_run.sh
+└── polars_data_analysis.ipynb
+
+## Quick Start
+
+1. Build the Docker image:
+bash
+./01-docker_build.sh
+or
+docker build -t polars-data-analysis .
 
 
-## Usage
+2. Run the container:
+bash
+./02-docker_run.sh
+or
+docker run -p 8888:8888 -v ${PWD}:/app polars-data-analysis
 
-1. Access Jupyter Lab at `http://localhost:8888`
-2. Your work will be saved in the `notebooks` directory
-3. Place your data files in the `data` directory
 
-## Environment Details
+3. Open your web browser and navigate to the URL shown in the terminal output (usually starts with `http://127.0.0.1:8888/...`)
 
-- Python 3.x
+## Installed Packages
+
 - Polars
-- Jupyter Lab
-- Common data science packages
+- NumPy
+- Pandas
+- Matplotlib
+- Seaborn
+- scikit-learn
+- Jupyter
 
-## Stopping the Environment
+## Features
 
-To stop the Docker container:
-```bash
-docker-compose down
+- Python 3.9 base environment
+- Jupyter Notebook server accessible via browser
+- Volume mounting for persistent notebook storage
+- Pre-installed data science packages
+- Polars for high-performance data manipulation
+
+## Development
+
+The project uses volume mounting (`-v ${PWD}:/app`) to sync the local directory with the container's `/app` directory. Any changes made to notebooks or other files will persist on your local machine.
+
+## License
+
+This project is open-source and available under the MIT License.
