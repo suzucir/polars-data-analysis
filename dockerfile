@@ -1,5 +1,5 @@
 # ベースイメージを指定する(例ではPython 3.9の公式イメージを使用)
-FROM python:3.9
+FROM python:3.11
 
 # 作業ディレクトリを設定
 WORKDIR /app
