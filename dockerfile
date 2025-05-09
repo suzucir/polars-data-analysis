@@ -8,6 +8,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     python3-dev \
+    git \
+    curl \
+    libopenblas-dev \
+    liblapack-dev \
+    libjpeg-dev \
+    libpng-dev \
+    wget \
+    software-properties-common \
+    ffmpeg libsm6 libxext6 \  # OpenCVの依存関係
     && rm -rf /var/lib/apt/lists/*
 
 # プロジェクトファイルをコンテナにコピー
@@ -20,4 +29,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8888
 
 # コンテナ起動時に実行するコマンド
-CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--allow-root"]
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
