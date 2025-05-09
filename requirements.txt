@@ -1,17 +1,18 @@
-# 深層学習
+# Deep Learning
 tensorflow
 torch
 transformers
 huggingface-hub
 
-# 機械学習拡張
+# ML
 scikit-learn
 xgboost
 lightgbm
 catboost
-optuna  # ハイパーパラメータ最適化
+optuna 
+alphapy
 
-# データ処理/可視化の拡張
+# Data Analysis
 numpy
 pandas
 matplotlib
@@ -21,15 +22,15 @@ polars
 plotly
 dash
 streamlit
-fastapi  # APIサービング用
-pydantic  # データバリデーション
-dask  # 並列計算
+fastapi
+pydantic 
+dask
 
-# 実験管理
+# Flow
 mlflow
 wandb
 
-# ノートブック拡張
-jupyterlab  # Jupyter Notebookの代わりにJupyterLabを使用
-jupyter-black  # コードフォーマッティング
-ipywidgets  # インタラクティブウィジェット
+# Notebook
+jupyterlab 
+jupyter-black 
+ipywidgets 
