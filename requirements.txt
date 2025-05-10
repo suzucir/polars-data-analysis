@@ -1,15 +1,15 @@
 # Deep Learning
-tensorflow
-torch
-transformers
-huggingface-hub
+#tensorflow
+#torch
+#transformers
+#huggingface-hub
 
 # ML
 scikit-learn
 xgboost
-lightgbm
-catboost
-optuna 
+#lightgbm
+#catboost
+#optuna 
 alphapy
 
 # Data Analysis
@@ -22,15 +22,15 @@ polars
 plotly
 dash
 streamlit
-fastapi
-pydantic 
-dask
+#fastapi
+#pydantic 
+#dask
 
 # Flow
-mlflow
-wandb
+#mlflow
+#wandb
 
 # Notebook
 jupyterlab 
-jupyter-black 
-ipywidgets 
+#jupyter-black 
+#ipywidgets 
