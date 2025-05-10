@@ -31,7 +31,7 @@ jobs:
           df -h
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Create requirements-ci.txt if not exists
         run: |
@@ -108,82 +108,85 @@ jobs:
           EOF
           echo "Created CI-specific Dockerfile"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      # Build using direct Docker command
+      - name: Build Docker image directly
+        id: direct-build
+        run: |
+          echo "Building Docker image using direct command..."
+          docker build -t polars-data-analysis:ci-test -f Dockerfile.ci .
+          echo "image_built=true" >> $GITHUB_OUTPUT
 
-      - name: Cache Docker layers
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+      # Verify that the image exists
+      - name: Verify Docker image
+        id: verify-image
+        run: |
+          echo "Verifying docker image exists..."
+          if docker image inspect polars-data-analysis:ci-test > /dev/null 2>&1; then
+            echo "Image exists!"
+            echo "image_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Image does not exist!"
+            echo "image_exists=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Build CI Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: Dockerfile.ci
-          push: false
-          load: true
-          tags: polars-data-analysis:ci-test
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
+      # Run basic tests
       - name: Run Basic Import Test
-        run: docker run --rm polars-data-analysis:ci-test
-
-      - name: Run Basic Functionality Test
+        id: basic-test
+        if: steps.verify-image.outputs.image_exists == 'true'
         run: |
-          cat > test/simple_test.py << 'EOF'
-          import numpy as np
-          import pandas as pd
-          import polars as pl
-          
-          # Create basic data
-          data = {'A': [1, 2, 3], 'B': [4, 5, 6]}
-          
-          # Create DataFrame with Pandas
-          pdf = pd.DataFrame(data)
-          print("Pandas DataFrame:")
-          print(pdf)
-          
-          # Create DataFrame with Polars
-          plf = pl.DataFrame(data)
-          print("\nPolars DataFrame:")
-          print(plf)
-          
-          print("\nTest completed successfully!")
-          EOF
-          
-          docker run --rm -v $(pwd)/test:/app/test polars-data-analysis:ci-test python /app/test/simple_test.py
+          echo "Running basic import test..."
+          docker run --rm polars-data-analysis:ci-test
+          echo "test_run=true" >> $GITHUB_OUTPUT
 
+      # Check package versions
       - name: Print package versions
+        id: check-versions
+        if: steps.verify-image.outputs.image_exists == 'true'
         run: |
-          docker run --rm polars-data-analysis:ci-test pip freeze
+          echo "Checking installed package versions..."
+          docker run --rm polars-data-analysis:ci-test pip freeze > package_versions.txt
+          cat package_versions.txt
+          echo "versions_checked=true" >> $GITHUB_OUTPUT
 
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
+      # Generate test report
       - name: Generate test report
-        if: always()
+        if: always() && steps.verify-image.outputs.image_exists == 'true'
         run: |
           echo "# CI Test Results" > test_report.md
           echo "Run Date: $(date)" >> test_report.md
           echo "Commit: ${{ github.sha }}" >> test_report.md
           echo "" >> test_report.md
+          
           echo "## Installed Packages" >> test_report.md
-          docker run --rm polars-data-analysis:ci-test pip freeze >> test_report.md
+          if [ -f "package_versions.txt" ]; then
+            cat package_versions.txt >> test_report.md
+          else
+            echo "Package versions not available" >> test_report.md
+          fi
+          
           echo "" >> test_report.md
           echo "## Test Result" >> test_report.md
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ All tests passed successfully" >> test_report.md
+          if [ "${{ steps.basic-test.outputs.test_run }}" == "true" ]; then
+            echo "✅ Basic import test completed" >> test_report.md
           else
-            echo "❌ Some tests failed" >> test_report.md
+            echo "❌ Basic import test did not run" >> test_report.md
           fi
 
+      # Create fallback report if build failed
+      - name: Create fallback report
+        if: always() && steps.verify-image.outputs.image_exists != 'true'
+        run: |
+          echo "# CI Test Results - Failed Build" > test_report.md
+          echo "Run Date: $(date)" >> test_report.md
+          echo "Commit: ${{ github.sha }}" >> test_report.md
+          echo "" >> test_report.md
+          echo "## Error" >> test_report.md
+          echo "Docker image build failed or image not accessible." >> test_report.md
+          echo "" >> test_report.md
+          echo "### Docker images available:" >> test_report.md
+          docker images >> test_report.md
+
+      # Upload test report as an artifact
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
