@@ -33,71 +33,68 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create requirements-ci.txt if not exists
+      - name: Create requirements-ci.txt
         run: |
-          if [ ! -f "requirements-ci.txt" ]; then
-            cat > requirements-ci.txt << 'EOF'
-            numpy
-            pandas<2.1.0
-            matplotlib
-            scikit-learn<1.3.0
-            polars<0.19.0
-            jupyter-core
-            pytest
-            EOF
-            echo "Created CI-specific requirements file"
-          fi
+          cat > requirements-ci.txt << 'EOFILE'
+          numpy
+          pandas<2.1.0
+          matplotlib
+          scikit-learn<1.3.0
+          polars<0.19.0
+          jupyter-core
+          pytest
+          EOFILE
+          echo "Created CI-specific requirements file"
 
-      - name: Create test directory and files if not exist
+      - name: Create test directory
+        run: mkdir -p test
+
+      - name: Create basic import test script
         run: |
-          mkdir -p test
+          cat > test/basic_import_test.py << 'EOFILE'
+          #!/usr/bin/env python3
+          import sys
+          import importlib
+
+          # Basic import test
+          required_packages = ['numpy', 'pandas', 'matplotlib', 'sklearn', 'polars']
           
-          if [ ! -f "test/basic_import_test.py" ]; then
-            cat > test/basic_import_test.py << EOF
-            #!/usr/bin/env python3
-            import sys
-            import importlib
-
-            # Basic import test
-            required_packages = ['numpy', 'pandas', 'matplotlib', 'sklearn', 'polars']
-            
-            for package in required_packages:
-                try:
-                    module = importlib.import_module(package)
-                    if hasattr(module, '__version__'):
-                        print(f"✓ {package} ({module.__version__})")
-                    else:
-                        print(f"✓ {package}")
-                except ImportError as e:
-                    print(f"× {package}: {str(e)}")
-                    sys.exit(1)
-                    
-            print("All packages imported successfully!")
-            EOF
-            chmod +x test/basic_import_test.py
-            echo "Created basic import test script"
-          fi
+          for package in required_packages:
+              try:
+                  module = importlib.import_module(package)
+                  if hasattr(module, '__version__'):
+                      print(f"✓ {package} ({module.__version__})")
+                  else:
+                      print(f"✓ {package}")
+              except ImportError as e:
+                  print(f"× {package}: {str(e)}")
+                  sys.exit(1)
+                  
+          print("All packages imported successfully!")
+          EOFILE
+          chmod +x test/basic_import_test.py
+          echo "Created basic import test script"
 
       - name: Create CI Dockerfile
         run: |
-          cat > Dockerfile.ci << EOF
+          cat > Dockerfile.ci << 'EOFILE'
           FROM python:3.11-slim
           
           WORKDIR /app
           
           # Install minimal system packages
-          RUN apt-get update && apt-get install -y --no-install-recommends \\
-              build-essential \\
-              python3-dev \\
-              && apt-get clean \\
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              build-essential \
+              python3-dev \
+              && apt-get clean \
               && rm -rf /var/lib/apt/lists/*
           
           # Copy CI-specific requirements file
           COPY requirements-ci.txt .
           
           # Install packages and clean cache
-          RUN pip install --no-cache-dir --upgrade pip && \\
-              pip install --no-cache-dir -r requirements-ci.txt && \\
+          RUN pip install --no-cache-dir --upgrade pip && \
+              pip install --no-cache-dir -r requirements-ci.txt && \
               pip cache purge
           
           # Copy test directory
@@ -105,7 +102,7 @@ jobs:
           
           # Default test command
           CMD ["python", "test/basic_import_test.py"]
-          EOF
+          EOFILE
           echo "Created CI-specific Dockerfile"
 
       # Build using direct Docker command
@@ -193,3 +190,4 @@ jobs:
         with:
           name: test-report
           path: test_report.md
+          
