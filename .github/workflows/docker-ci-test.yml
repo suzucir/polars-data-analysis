@@ -53,7 +53,7 @@ jobs:
           mkdir -p test
           
           if [ ! -f "test/basic_import_test.py" ]; then
-            cat > test/basic_import_test.py << 'EOF'
+            cat > test/basic_import_test.py << EOF
             #!/usr/bin/env python3
             import sys
             import importlib
