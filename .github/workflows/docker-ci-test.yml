@@ -36,7 +36,7 @@ jobs:
       - name: Create requirements-ci.txt if not exists
         run: |
           if [ ! -f "requirements-ci.txt" ]; then
-            cat > requirements-ci.txt << EOF
+            cat > requirements-ci.txt << 'EOF'
             numpy
             pandas<2.1.0
             matplotlib
