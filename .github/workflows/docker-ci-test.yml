@@ -1,0 +1,192 @@
+name: Docker CI Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'test/**'
+      - '.github/workflows/docker-ci-test.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # For manual execution
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          
+          echo "Removing unnecessary large packages..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create requirements-ci.txt if not exists
+        run: |
+          if [ ! -f "requirements-ci.txt" ]; then
+            cat > requirements-ci.txt << EOF
+            numpy
+            pandas<2.1.0
+            matplotlib
+            scikit-learn<1.3.0
+            polars<0.19.0
+            jupyter-core
+            pytest
+            EOF
+            echo "Created CI-specific requirements file"
+          fi
+
+      - name: Create test directory and files if not exist
+        run: |
+          mkdir -p test
+          
+          if [ ! -f "test/basic_import_test.py" ]; then
+            cat > test/basic_import_test.py << 'EOF'
+            #!/usr/bin/env python3
+            import sys
+            import importlib
+
+            # Basic import test
+            required_packages = ['numpy', 'pandas', 'matplotlib', 'sklearn', 'polars']
+            
+            for package in required_packages:
+                try:
+                    module = importlib.import_module(package)
+                    if hasattr(module, '__version__'):
+                        print(f"✓ {package} ({module.__version__})")
+                    else:
+                        print(f"✓ {package}")
+                except ImportError as e:
+                    print(f"× {package}: {str(e)}")
+                    sys.exit(1)
+                    
+            print("All packages imported successfully!")
+            EOF
+            chmod +x test/basic_import_test.py
+            echo "Created basic import test script"
+          fi
+
+      - name: Create CI Dockerfile
+        run: |
+          cat > Dockerfile.ci << EOF
+          FROM python:3.11-slim
+          
+          WORKDIR /app
+          
+          # Install minimal system packages
+          RUN apt-get update && apt-get install -y --no-install-recommends \\
+              build-essential \\
+              python3-dev \\
+              && apt-get clean \\
+              && rm -rf /var/lib/apt/lists/*
+          
+          # Copy CI-specific requirements file
+          COPY requirements-ci.txt .
+          
+          # Install packages and clean cache
+          RUN pip install --no-cache-dir --upgrade pip && \\
+              pip install --no-cache-dir -r requirements-ci.txt && \\
+              pip cache purge
+          
+          # Copy test directory
+          COPY test/ /app/test/
+          
+          # Default test command
+          CMD ["python", "test/basic_import_test.py"]
+          EOF
+          echo "Created CI-specific Dockerfile"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build CI Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile.ci
+          push: false
+          load: true
+          tags: polars-data-analysis:ci-test
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      - name: Run Basic Import Test
+        run: docker run --rm polars-data-analysis:ci-test
+
+      - name: Run Basic Functionality Test
+        run: |
+          cat > test/simple_test.py << 'EOF'
+          import numpy as np
+          import pandas as pd
+          import polars as pl
+          
+          # Create basic data
+          data = {'A': [1, 2, 3], 'B': [4, 5, 6]}
+          
+          # Create DataFrame with Pandas
+          pdf = pd.DataFrame(data)
+          print("Pandas DataFrame:")
+          print(pdf)
+          
+          # Create DataFrame with Polars
+          plf = pl.DataFrame(data)
+          print("\nPolars DataFrame:")
+          print(plf)
+          
+          print("\nTest completed successfully!")
+          EOF
+          
+          docker run --rm -v $(pwd)/test:/app/test polars-data-analysis:ci-test python /app/test/simple_test.py
+
+      - name: Print package versions
+        run: |
+          docker run --rm polars-data-analysis:ci-test pip freeze
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Generate test report
+        if: always()
+        run: |
+          echo "# CI Test Results" > test_report.md
+          echo "Run Date: $(date)" >> test_report.md
+          echo "Commit: ${{ github.sha }}" >> test_report.md
+          echo "" >> test_report.md
+          echo "## Installed Packages" >> test_report.md
+          docker run --rm polars-data-analysis:ci-test pip freeze >> test_report.md
+          echo "" >> test_report.md
+          echo "## Test Result" >> test_report.md
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ All tests passed successfully" >> test_report.md
+          else
+            echo "❌ Some tests failed" >> test_report.md
+          fi
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-report
+          path: test_report.md
